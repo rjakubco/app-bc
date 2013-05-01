@@ -22,13 +22,16 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Migrator of security subsystem implementing IMigrator
- * 
+ *
  * Example AS 5 config:
- * 
+ *
         <application-policy name="todo">
             <authentication>
                 <login-module code="org.jboss.security.auth.spi.LdapLoginModule" flag="required">
@@ -44,10 +47,10 @@ public class SecurityMigrator extends AbstractMigrator {
 
     private static final String AS7_CONFIG_DIR_PLACEHOLDER = "${jboss.server.config.dir}";
 
-    
+
     // Files which must be copied into AS7
     private Set<String> fileNames = new HashSet();
-    private Set<CopyFileAction> copyActions;
+
 
 
     @Override
@@ -83,13 +86,13 @@ public class SecurityMigrator extends AbstractMigrator {
         }
     }
 
-    
+
     /**
      *  Creates the actions.
      */
     @Override
     public void createActions(MigrationContext ctx) throws MigrationException {
-        
+
         // Config fragments
         for( IConfigFragment fragment : ctx.getMigrationData().get(SecurityMigrator.class).getConfigFragments()) {
             if( fragment instanceof ApplicationPolicyBean) {
@@ -107,7 +110,7 @@ public class SecurityMigrator extends AbstractMigrator {
         // Files to copy
         File as5profileDir = getGlobalConfig().getAS5Config().getProfileDir();
         String as7Dir      = getGlobalConfig().getAS7Config().getDir();
-        
+
         for( String fileName : this.fileNames ) {
             File src;
             try {
@@ -144,7 +147,7 @@ public class SecurityMigrator extends AbstractMigrator {
         securityDomain.setCacheType("default");
         if (appPolicy.getLoginModules() != null) {
             for (LoginModuleAS5Bean lmAS5 : appPolicy.getLoginModules()) {
-                loginModules.add( createLoginModule( lmAS5, this.copyActions ) );
+                loginModules.add( createLoginModule( lmAS5 ) );
             }
         }
 
@@ -153,22 +156,22 @@ public class SecurityMigrator extends AbstractMigrator {
         return securityDomain;
     }
 
-    
+
     /**
      *  Migrates the given login module.
      */
-    private LoginModuleAS7Bean createLoginModule(LoginModuleAS5Bean lmAS5, Collection<CopyFileAction> filesToCopy ) {
+    private LoginModuleAS7Bean createLoginModule(LoginModuleAS5Bean lmAS5 ) {
         LoginModuleAS7Bean lmAS7 = new LoginModuleAS7Bean();
 
         // Flag
         lmAS7.setLoginModuleFlag( lmAS5.getLoginModuleFlag() );
-        
+
         // Code
         lmAS7.setLoginModuleCode( deriveLoginModuleName( lmAS5.getLoginModule() ) );
 
         // Module options
         Set<ModuleOptionAS7Bean> moduleOptions = new HashSet();
-        lmAS7.setModuleOptions(moduleOptions);
+
         if( lmAS5.getModuleOptions() == null )
             return lmAS7;
 
@@ -183,8 +186,8 @@ public class SecurityMigrator extends AbstractMigrator {
                     this.fileNames.add(fName); // Add to the list of the files to copy.
                     // TODO: Rather directly create CopyActions.
                     // TODO: The paths in AS 5 config relate to some base dir. Find out which and use that, instead of searching.
-                    /*filesToCopy.add( new CopyAction( 
-                            new File( moAS5.getModuleValue()), 
+                    /*filesToCopy.add( new CopyAction(
+                            new File( moAS5.getModuleValue()),
                             new File( getGlobalConfig().getAS7Config().getConfigPath(), fName), false, false));*/
                     break;
                 default:
@@ -194,6 +197,7 @@ public class SecurityMigrator extends AbstractMigrator {
             ModuleOptionAS7Bean moAS7 = new ModuleOptionAS7Bean( moAS5.getModuleName(), value );
             moduleOptions.add( moAS7 );
         }
+        lmAS7.setModuleOptions(moduleOptions);
         return lmAS7;
     }
 
@@ -202,7 +206,7 @@ public class SecurityMigrator extends AbstractMigrator {
      *  This methods translates them from AS 5.
      */
     private static String deriveLoginModuleName( String as5moduleName ) {
-        
+
         String type = StringUtils.substringAfterLast(as5moduleName, ".");
         switch( type ) {
             case "ClientLoginModule": return "Client";
@@ -230,8 +234,8 @@ public class SecurityMigrator extends AbstractMigrator {
         }
     }
 
-    
-    
+
+
     /**
      * Creates a list of CliCommandActions for adding a Security-Domain
      *
@@ -335,14 +339,14 @@ public class SecurityMigrator extends AbstractMigrator {
                 domain.getSecurityDomainName());
         resultScript.append("/authentication=classic:add(login-modules=[{");
 
-        if ((module.getLoginModuleCode() != null) || !(module.getLoginModuleCode().isEmpty())) {
+        if ((module.getLoginModuleCode() != null) && !(module.getLoginModuleCode().isEmpty())) {
             resultScript.append("\"code\"=>\"").append(module.getLoginModuleCode()).append("\"");
         }
-        if ((module.getLoginModuleFlag() != null) || !(module.getLoginModuleFlag().isEmpty())) {
+        if ((module.getLoginModuleFlag() != null) && !(module.getLoginModuleFlag().isEmpty())) {
             resultScript.append(", \"flag\"=>\"").append(module.getLoginModuleFlag()).append("\"");
         }
 
-        if ((module.getModuleOptions() != null) || (!module.getModuleOptions().isEmpty())) {
+        if ((module.getModuleOptions() != null) && !(module.getModuleOptions().isEmpty())) {
             StringBuilder modulesBuilder = new StringBuilder();
             for (ModuleOptionAS7Bean moduleOptionAS7 : module.getModuleOptions()) {
                 modulesBuilder.append(", (\"").append(moduleOptionAS7.getModuleOptionName()).append("\"=>");
@@ -359,5 +363,5 @@ public class SecurityMigrator extends AbstractMigrator {
 
         return resultScript.toString();
     }
-    
+
 }// class

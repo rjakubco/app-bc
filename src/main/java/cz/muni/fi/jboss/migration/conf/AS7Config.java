@@ -11,12 +11,16 @@ public class AS7Config {
 
     private String as7dir;
     private String as7configPath = "standalone/configuration/standalone.xml";
+    private String configDir = "standalone/configuration";
 
 
     public String getConfigFilePath() {
         return new File(getDir(), getConfigPath()).getPath();  // TODO: Return File and use that.
     }
 
+    public String getConfigDir(){
+        return new File(getDir(), configDir).getPath();
+    }
 
     //<editor-fold defaultstate="collapsed" desc="get/set">
     public String getDir() {

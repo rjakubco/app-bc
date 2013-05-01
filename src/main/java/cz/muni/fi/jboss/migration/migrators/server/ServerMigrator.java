@@ -2,17 +2,17 @@ package cz.muni.fi.jboss.migration.migrators.server;
 
 import cz.muni.fi.jboss.migration.*;
 import cz.muni.fi.jboss.migration.actions.CliCommandAction;
+import cz.muni.fi.jboss.migration.actions.CopyFileAction;
 import cz.muni.fi.jboss.migration.conf.GlobalConfiguration;
-import cz.muni.fi.jboss.migration.ex.CliScriptException;
-import cz.muni.fi.jboss.migration.ex.LoadMigrationException;
-import cz.muni.fi.jboss.migration.ex.MigrationException;
-import cz.muni.fi.jboss.migration.ex.NodeGenerationException;
+import cz.muni.fi.jboss.migration.ex.*;
 import cz.muni.fi.jboss.migration.migrators.server.jaxb.*;
 import cz.muni.fi.jboss.migration.spi.IConfigFragment;
 import cz.muni.fi.jboss.migration.utils.Utils;
 import org.apache.commons.collections.map.MultiValueMap;
 import org.jboss.as.controller.client.helpers.ClientConstants;
 import org.jboss.dmr.ModelNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -38,11 +38,15 @@ public class ServerMigrator extends AbstractMigrator {
     protected String getConfigPropertyModuleName() {
         return "server";
     }
+    private static final String AS7_CONFIG_DIR_PLACEHOLDER = "${jboss.server.config.dir}";
 
+    private static final Logger log = LoggerFactory.getLogger(ServerMigrator.class);
 
     private Set<SocketBindingBean> socketTemp = new HashSet();
 
     private Set<SocketBindingBean> socketBindings = new HashSet();
+
+    private Set<String> keystoreFiles = new HashSet();
 
     private Integer randomSocket = 1;
 
@@ -117,7 +121,25 @@ public class ServerMigrator extends AbstractMigrator {
             } catch (CliScriptException e) {
                 throw new MigrationException("Creation of the new socket-binding failed: " + e.getMessage(), e);
             }
-       }
+        }
+
+        for(String fName : keystoreFiles){
+            File as5profileDir = getGlobalConfig().getAS5Config().getProfileDir();
+            File src;
+            try {
+                src = Utils.searchForFile(fName, as5profileDir).iterator().next();
+            } catch( CopyException ex ) {
+                //throw new ActionException("Failed copying a security file: " + ex.getMessage(), ex);
+                // Some files referenced in security may not exist. (?)
+                log.warn("Couldn't find file referenced in AS 5 server config: " + fName);
+                continue;
+            }
+
+
+            File target = Utils.createPath(getGlobalConfig().getAS7Config().getConfigDir(), "keys", src.getName());
+            CopyFileAction action = new CopyFileAction( this.getClass(), src, target, false);
+            ctx.getActions().add(action);
+        }
     }
 
     /**
@@ -164,8 +186,12 @@ public class ServerMigrator extends AbstractMigrator {
 
             connAS7.setSslName("ssl");
             connAS7.setVerifyClient(connector.getClientAuth());
-            // TODO: Problem with place of the file
-            connAS7.setCertifKeyFile(connector.getKeystoreFile());
+            if( connector.getKeystoreFile() != null ){
+                String fName =  new File(connector.getKeystoreFile()).getName();
+                connAS7.setCertifKeyFile(AS7_CONFIG_DIR_PLACEHOLDER +  "/keys/" + fName);
+                keystoreFiles.add(fName);
+            }
+
 
             // TODO: No sure which protocols can be in AS5. Hard to find..
             if ((connector.getSslProtocol().equals("TLS")) || (connector.getSslProtocol() == null)) {
@@ -325,7 +351,7 @@ public class ServerMigrator extends AbstractMigrator {
             sslBuilder.addProperty("verify-depth", connAS7.getVerifyDepth());
             sslBuilder.addProperty("certificate-key-file", connAS7.getCertifKeyFile());
             sslBuilder.addProperty("password", connAS7.getPassword());
-            sslBuilder.addProperty("protocol", connAS7.getProtocol());
+            sslBuilder.addProperty("protocol", connAS7.getSslProtocol());
             sslBuilder.addProperty("ciphers", connAS7.getCiphers());
             sslBuilder.addProperty("key-alias", connAS7.getKeyAlias());
             sslBuilder.addProperty("ca-certificate-file", connAS7.getCaCertifFile());
@@ -454,7 +480,7 @@ public class ServerMigrator extends AbstractMigrator {
         builder.addProperty("verify-depth", connAS7.getVerifyDepth());
         builder.addProperty("certificate-key-file", connAS7.getCertifKeyFile());
         builder.addProperty("password", connAS7.getPassword());
-        builder.addProperty("protocol", connAS7.getProtocol());
+        builder.addProperty("protocol", connAS7.getSslProtocol());
         builder.addProperty("ciphers", connAS7.getCiphers());
         builder.addProperty("key-alias", connAS7.getKeyAlias());
         builder.addProperty("ca-certificate-file", connAS7.getCaCertifFile());
