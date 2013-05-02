@@ -180,6 +180,7 @@ public class DatasourceMigrator extends AbstractMigrator {
             throw new MigrationException("Finding jar containing driver class failed: " + e.getMessage(), e);
         }
 
+
         List<IMigrationAction> actions = new ArrayList();
 
         if (tempModules.containsKey(src)) {

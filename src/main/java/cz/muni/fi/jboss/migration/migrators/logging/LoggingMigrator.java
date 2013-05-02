@@ -40,6 +40,8 @@ public class LoggingMigrator extends AbstractMigrator {
     // Sequence number for driver names.
     // TODO: Perhaps move this property to migration context.
     private int number = 1;
+
+
     
     @Override protected String getConfigPropertyModuleName() { return "logging"; }
     
@@ -210,6 +212,11 @@ public class LoggingMigrator extends AbstractMigrator {
         try {
             String appenderType = StringUtils.substringAfterLast(type, ".");
             CliCommandAction action;
+            String appenderName = appenderBean.getAppenderName();
+            if(appenderName.equalsIgnoreCase("file") || appenderName.equalsIgnoreCase("console")){
+                appenderBean.setAppenderName("created" + appenderName);
+            }
+
 
             switch( appenderType ) {
                 case "DailyRollingFileAppender":{
@@ -321,7 +328,7 @@ public class LoggingMigrator extends AbstractMigrator {
             }
         }
 
-        handler.setFormatter(appender.getLayoutParamValue());
+        handler.setFormatter(replacePattern(appender.getLayoutParamValue()));
 
         return handler;
     }
@@ -369,7 +376,7 @@ public class LoggingMigrator extends AbstractMigrator {
             }
         }
 
-        handler.setFormatter(appender.getLayoutParamValue());
+        handler.setFormatter(replacePattern(appender.getLayoutParamValue()));
 
         return handler;
     }
@@ -405,7 +412,7 @@ public class LoggingMigrator extends AbstractMigrator {
         }
 
         handler.setSubhandlers(appendersRef);
-        handler.setFormatter(appender.getLayoutParamValue());
+        handler.setFormatter(replacePattern(appender.getLayoutParamValue()));
 
         return handler;
     }
@@ -433,7 +440,7 @@ public class LoggingMigrator extends AbstractMigrator {
             }
         }
 
-        handler.setFormatter(appender.getLayoutParamValue());
+        handler.setFormatter(replacePattern(appender.getLayoutParamValue()));
 
         return handler;
     }
@@ -472,7 +479,7 @@ public class LoggingMigrator extends AbstractMigrator {
         }
 
         handler.setProperties(properties);
-        handler.setFormatter(appender.getLayoutParamValue());
+        handler.setFormatter(replacePattern(appender.getLayoutParamValue()));
 
         return handler;
     }
@@ -712,6 +719,7 @@ public class LoggingMigrator extends AbstractMigrator {
     /**
      * Creates a list of CliCommandActions for modifying a root-logger
      *
+     *
      * @param root object representing root-logger
      * @return list of created CliCommandActions
      * @throws CliScriptException
@@ -720,6 +728,7 @@ public class LoggingMigrator extends AbstractMigrator {
         // TODO: Not sure how set handlers in root-logger. Same thing for filter attribute. For now empty
         return null;
     }
+
 
     /**
      * Creates a CLI script for adding a Logger
@@ -984,4 +993,12 @@ public class LoggingMigrator extends AbstractMigrator {
         return resultScript.toString();
     }
 
+    private static String replacePattern(String pattern){
+        // these parameter needs to be replaced
+        String[] searchList = {"ABSOLUTE", "ISO8601", "DATE"};
+        // with these parameter
+        String[] replaceList = {"HH:mm:ss,SSS", "yyyy-mm-dd HH:mm:ss,SSS", "dd MMM yyyy HH:mm:ss,SSS"};
+
+        return StringUtils.replaceEach(pattern, searchList, replaceList);
+    }
 }// class

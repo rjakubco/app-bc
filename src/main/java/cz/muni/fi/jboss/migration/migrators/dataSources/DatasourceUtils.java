@@ -12,7 +12,7 @@ public class DatasourceUtils {
     
     public static Document createJDBCDriverModuleXML(String moduleName, String fileName) throws ParserConfigurationException {
 
-        String[] deps = new String[]{"javax.api", "javax.transaction.api", null, "javax.servlet.api"};
+        String[] deps = new String[]{"javax.api", "javax.transaction.api", "javax.servlet.api"};
         // Servlet API necessary only for H2 AFAIK.
         
         return AS7ModuleUtils.createModuleXML( moduleName, fileName, deps );

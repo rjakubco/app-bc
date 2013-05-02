@@ -29,6 +29,9 @@ public class DriverBean {
     @XmlElement(name = "driver-class")
     private String driverClass;
 
+    @XmlElement(name = "datasource-class")
+    private String datasourceClass;
+
     @XmlElement(name = "xa-datasource-class")
     private String xaDatasourceClass;
 
@@ -78,6 +81,14 @@ public class DriverBean {
 
     public void setXaDatasourceClass(String xaDatasourceClass) {
         this.xaDatasourceClass = xaDatasourceClass;
+    }
+
+    public String getDatasourceClass() {
+        return datasourceClass;
+    }
+
+    public void setDatasourceClass(String datasourceClass) {
+        this.datasourceClass = datasourceClass;
     }
 
     @Override
